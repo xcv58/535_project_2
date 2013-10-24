@@ -157,7 +157,9 @@ public class BatchSearchForTopics {
 //			String[] pair = line.split(" ", 2);
 //			System.out.println("!!" + pair[0] + " \n"+ pair[1]);
 //			System.out.println(line);
+			
 			Query query = parser.parse(title + desc);
+//			System.out.println(query.toString());
 //			Query query = parser.parse(pair[1]);
 
 			doBatchSearch(in, searcher, number, query, simstring);
