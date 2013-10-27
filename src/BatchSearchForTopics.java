@@ -15,9 +15,12 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.queryparser.xml.builders.TermQueryBuilder;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.similarities.*;
 import org.apache.lucene.store.FSDirectory;
@@ -171,6 +174,7 @@ public class BatchSearchForTopics {
 			}
 			title = replacePattern.matcher(title).replaceAll(" ");
 			desc = replacePattern.matcher(desc).replaceAll(" ");
+			narr = removeIrrelevantString(narr);
 			narr = replacePattern.matcher(narr).replaceAll(" ");
 			String queryString = title;
 			if (addStrategy.contains("d")) {
@@ -205,21 +209,26 @@ public class BatchSearchForTopics {
 			Iterator<Map.Entry<String, Integer>> e = list.iterator();
 			StringBuilder querySBuilder = new StringBuilder(title);
 			while(e.hasNext()) {
-				if (topk <= 0) {
-					break;
-				}
-				topk--;
+//				if (topk <= 0) {
+//					break;
+//				}
+//				topk--;
 				Map.Entry<String, Integer> entry = e.next();
 //				if (entry.getValue() == 1) {
 //					break;
 //				}
 				querySBuilder.append(entry.getKey() + " ");
-//				System.out.println(entry.getKey() + "  " + entry.getValue());
 			}
 			queryString = querySBuilder.toString();
-//			queryString = title + desc;
+			queryString = title + desc + narr;
 			Query query = parser.parse(queryString);
+//			query.setBoost((float) 0.5);
+//			TermQueryBuilder tq = new TermQueryBuilder();
+//			BooleanQuery booleanQuery = new BooleanQuery();
+//			booleanQuery.add(query, BooleanClause.Occur.MUST);
+//			booleanQuery.rewrite();
 //			query.createWeight(searcher);
+			
 			doBatchSearch(in, searcher, number, query, simstring);
 			
 //			System.out.println(queryString);
@@ -269,6 +278,20 @@ public class BatchSearchForTopics {
 			seen.put(docno, docno);
 			System.out.println(qid+" Q0 "+docno+" "+i+" "+hits[i].score+" "+runtag);
 		}
+	}
+	
+	private static String removeIrrelevantString (String s) {
+		s = s.replaceAll("\\(.*?\\)", "");
+		String regexString = "[^\\.]*?((no.{1,5}relevant)|(irrelevant))[^\\.]*?(\\.|$)";
+		Pattern removeIrrelevantPattern = Pattern.compile(regexString);
+		Matcher m = removeIrrelevantPattern.matcher(s);
+//		while (m.find()) {
+//			String tmpString = m.group();
+//			System.out.println(tmpString);
+//		}
+		String result = removeIrrelevantPattern.matcher(s).replaceAll("");
+		return result;
+//		return null;
 	}
 }
 
