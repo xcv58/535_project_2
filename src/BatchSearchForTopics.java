@@ -25,6 +25,14 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.similarities.*;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
+import org.apache.lucene.util.packed.PackedInts.Mutable;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.index.CorruptIndexException;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.LockObtainFailedException;
 
 import com.sun.corba.se.impl.encoding.OSFCodeSetRegistry.Entry;
 
@@ -118,7 +126,8 @@ public class BatchSearchForTopics {
 		}
 		QueryParser parser = new QueryParser(Version.LUCENE_41, field, analyzer);
 		Pattern numberReplacePattern = Pattern.compile("\\<num\\> Number:\\s*");
-		Pattern replacePattern = Pattern.compile("(?<=[^A-Z])[:;\\-\"\\.\\?,\\'/]|\\(.*?\\)");
+		Pattern multiSpacePattern = Pattern.compile("[\\s\\t]+");
+		Pattern replacePattern = Pattern.compile("(?<=[^A-Z])[:;\\*\\-\"\\.\\?,\\'/]|\\(.*?\\)");
 		while (true) {
 			
 			//Handle one line for search
@@ -219,9 +228,26 @@ public class BatchSearchForTopics {
 //				}
 				querySBuilder.append(entry.getKey() + " ");
 			}
-			queryString = querySBuilder.toString();
-			queryString = title + desc + narr;
-			Query query = parser.parse(queryString);
+//			queryString = querySBuilder.toString();
+//			queryString = title + desc + narr;
+//			Query query = parser.parse(queryString);
+//			title = multiSpacePattern.matcher(title).replaceAll(" ");
+//			desc = multiSpacePattern.matcher(desc).replaceAll(" ");
+//			narr = multiSpacePattern.matcher(narr).replaceAll(" ");
+			
+			BooleanQuery booleanQuery = new BooleanQuery();
+			queryString = title;
+			Query query = parser.parse(queryString.trim());
+			query.setBoost((float) 0.5);
+			booleanQuery.add(query, BooleanClause.Occur.MUST);
+			query = parser.parse(desc.trim());
+			query.setBoost((float) 0.35);
+			booleanQuery.add(query, BooleanClause.Occur.MUST);
+			if (!narr.matches("[\\s\\t]*")) {
+				query = parser.parse(narr.trim());
+				query.setBoost((float) 0.15);
+				booleanQuery.add(query, BooleanClause.Occur.MUST);
+			}
 //			query.setBoost((float) 0.5);
 //			TermQueryBuilder tq = new TermQueryBuilder();
 //			BooleanQuery booleanQuery = new BooleanQuery();
@@ -229,7 +255,8 @@ public class BatchSearchForTopics {
 //			booleanQuery.rewrite();
 //			query.createWeight(searcher);
 			
-			doBatchSearch(in, searcher, number, query, simstring);
+			doBatchSearch(in, searcher, number, booleanQuery, simstring);
+//			doBatchSearch(in, searcher, number, query, simstring);
 			
 //			System.out.println(queryString);
 			
