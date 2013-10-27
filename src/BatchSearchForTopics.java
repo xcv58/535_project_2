@@ -3,7 +3,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.HashMap;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -23,11 +23,31 @@ import org.apache.lucene.search.similarities.*;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 
+import com.sun.corba.se.impl.encoding.OSFCodeSetRegistry.Entry;
+
 /** Simple command-line based search demo. */
 public class BatchSearchForTopics {
 
 	private BatchSearchForTopics() {}
 
+	final static String[] stopWords = { "a", "able", "about", "across", "after", "all",
+		"almost", "also", "am", "among", "an", "and", "any", "are",
+		"as", "at", "be", "because", "been", "but", "by", "can",
+		"cannot", "could", "dear", "did", "do", "does", "either",
+		"else", "ever", "every", "for", "from", "get", "got", "had",
+		"has", "have", "he", "her", "hers", "him", "his", "how",
+		"however", "ƒi", "if", "in", "into", "is", "it", "its", "just",
+		"least", "let", "like", "likely", "may", "me", "might", "most",
+		"must", "my", "neither", "no", "nor", "not", "of", "off",
+		"often", "on", "only", "or", "other", "our", "own", "rather",
+		"said", "say", "says", "she", "should", "since", "so", "some",
+		"than", "that", "the", "their", "them", "then", "there",
+		"these", "they", "this", "tis", "to", "too", "twas", "us",
+		"wants", "was", "we", "were", "what", "when", "where", "which",
+		"while", "who", "whom", "why", "will", "with", "would", "yet",
+		"you", "your" };	
+		final static HashSet<String> stopWordSet = new HashSet<String>(Arrays.asList(stopWords));
+		
 	/** Simple command-line based search demo. */
 	public static void main(String[] args) throws Exception {
 		String usage =
@@ -42,6 +62,7 @@ public class BatchSearchForTopics {
 		String field = "contents";
 		String queries = null;
 		String simstring = "default";
+		String addStrategy = "";
 
 		for(int i = 0;i < args.length;i++) {
 			if ("-index".equals(args[i])) {
@@ -55,6 +76,9 @@ public class BatchSearchForTopics {
 				i++;
 			} else if ("-simfn".equals(args[i])) {
 				simstring = args[i+1];
+				i++;
+			} else if ("-strategy".equals(args[i])) {
+				addStrategy = args[i+1];
 				i++;
 			}
 		}
@@ -91,7 +115,7 @@ public class BatchSearchForTopics {
 		}
 		QueryParser parser = new QueryParser(Version.LUCENE_41, field, analyzer);
 		Pattern numberReplacePattern = Pattern.compile("\\<num\\> Number:\\s*");
-		Pattern replacePattern = Pattern.compile("(?<=[^A-Z])[\\-\"\\.\\?,\\'/]|\\(.*?\\)");
+		Pattern replacePattern = Pattern.compile("(?<=[^A-Z])[:;\\-\"\\.\\?,\\'/]|\\(.*?\\)");
 		while (true) {
 			
 			//Handle one line for search
@@ -148,6 +172,58 @@ public class BatchSearchForTopics {
 			title = replacePattern.matcher(title).replaceAll(" ");
 			desc = replacePattern.matcher(desc).replaceAll(" ");
 			narr = replacePattern.matcher(narr).replaceAll(" ");
+			String queryString = title;
+			if (addStrategy.contains("d")) {
+				queryString += desc;
+				queryString += narr;
+			} 
+			if (addStrategy.contains("n")) {
+				queryString += narr;
+			}
+			HashMap<String, Integer> queryMap = new HashMap<String, Integer>();
+			String[] tokensStrings = queryString.split("\\s+");
+//			System.out.println(tokensStrings.length);
+			for (String tmpString:tokensStrings) {
+				if (stopWordSet.contains(tmpString)) {
+					continue;
+				}
+				Integer tmpIndex = queryMap.get(tmpString);
+				if (tmpIndex == null) {
+					queryMap.put(tmpString, 1);
+				} else {
+					queryMap.put(tmpString, tmpIndex + 1);
+				}
+			}
+			List list = new LinkedList(queryMap.entrySet());
+			Collections.sort(list, new Comparator() {
+				public int compare(Object o1, Object o2) {
+					return ((Comparable) ((Map.Entry) (o2)).getValue())
+	                                       .compareTo(((Map.Entry) (o1)).getValue());
+				}
+			});
+			int topk = 100;
+			Iterator<Map.Entry<String, Integer>> e = list.iterator();
+			StringBuilder querySBuilder = new StringBuilder(title);
+			while(e.hasNext()) {
+				if (topk <= 0) {
+					break;
+				}
+				topk--;
+				Map.Entry<String, Integer> entry = e.next();
+//				if (entry.getValue() == 1) {
+//					break;
+//				}
+				querySBuilder.append(entry.getKey() + " ");
+//				System.out.println(entry.getKey() + "  " + entry.getValue());
+			}
+			queryString = querySBuilder.toString();
+//			queryString = title + desc;
+			Query query = parser.parse(queryString);
+//			query.createWeight(searcher);
+			doBatchSearch(in, searcher, number, query, simstring);
+			
+//			System.out.println(queryString);
+			
 //			System.out.println(number);
 //			System.out.println(title);
 //			System.out.println(desc);
@@ -158,11 +234,10 @@ public class BatchSearchForTopics {
 //			System.out.println("!!" + pair[0] + " \n"+ pair[1]);
 //			System.out.println(line);
 			
-			Query query = parser.parse(title + desc);
+//			Query query = parser.parse(title + desc);
 //			System.out.println(query.toString());
 //			Query query = parser.parse(pair[1]);
 
-			doBatchSearch(in, searcher, number, query, simstring);
 //			doBatchSearch(in, searcher, pair[0], query, simstring);
 		}
 		reader.close();
