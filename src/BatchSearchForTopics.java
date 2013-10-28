@@ -41,23 +41,24 @@ public class BatchSearchForTopics {
 
 	private BatchSearchForTopics() {}
 
-	final static String[] stopWords = { "a", "able", "about", "across", "after", "all",
-		"almost", "also", "am", "among", "an", "and", "any", "are",
-		"as", "at", "be", "because", "been", "but", "by", "can",
-		"cannot", "could", "dear", "did", "do", "does", "either",
-		"else", "ever", "every", "for", "from", "get", "got", "had",
-		"has", "have", "he", "her", "hers", "him", "his", "how",
-		"however", "ƒi", "if", "in", "into", "is", "it", "its", "just",
-		"least", "let", "like", "likely", "may", "me", "might", "most",
-		"must", "my", "neither", "no", "nor", "not", "of", "off",
-		"often", "on", "only", "or", "other", "our", "own", "rather",
-		"said", "say", "says", "she", "should", "since", "so", "some",
-		"than", "that", "the", "their", "them", "then", "there",
-		"these", "they", "this", "tis", "to", "too", "twas", "us",
-		"wants", "was", "we", "were", "what", "when", "where", "which",
-		"while", "who", "whom", "why", "will", "with", "would", "yet",
-		"you", "your" };	
-		final static HashSet<String> stopWordSet = new HashSet<String>(Arrays.asList(stopWords));
+//	final static String[] stopWords = { "a", "able", "about", "across", "after", "all",
+//		"almost", "also", "am", "among", "an", "and", "any", "are",
+//		"as", "at", "be", "because", "been", "but", "by", "can",
+//		"cannot", "could", "dear", "did", "do", "does", "either",
+//		"else", "ever", "every", "for", "from", "get", "got", "had",
+//		"has", "have", "he", "her", "hers", "him", "his", "how",
+//		"however", "ƒi", "if", "in", "into", "is", "it", "its", "just",
+//		"least", "let", "like", "likely", "may", "me", "might", "most",
+//		"must", "my", "neither", "no", "nor", "not", "of", "off",
+//		"often", "on", "only", "or", "other", "our", "own", "rather",
+//		"said", "say", "says", "she", "should", "since", "so", "some",
+//		"than", "that", "the", "their", "them", "then", "there",
+//		"these", "they", "this", "tis", "to", "too", "twas", "us",
+//		"wants", "was", "we", "were", "what", "when", "where", "which",
+//		"while", "who", "whom", "why", "will", "with", "would", "yet",
+//		"you", "your", "relevant" };	
+	final static String[] stopWords = { "relevant", "relevance", "document", "documents", "identify", "identifies", "identification", "describe", "include", "included", "includes", "discuss", "discussing", "discussion", "discussions", "discussions", "focus", "interest", "item", "items", "involve", "involves", "involved", "any", "specific", "instance", "instances", "example", "examples", "information", "limited"};
+	final static HashSet<String> stopWordSet = new HashSet<String>(Arrays.asList(stopWords));
 		
 	/** Simple command-line based search demo. */
 	public static void main(String[] args) throws Exception {
@@ -99,6 +100,7 @@ public class BatchSearchForTopics {
 			simfn = new DefaultSimilarity();
 		} else if ("bm25".equals(simstring)) {
 			simfn = new BM25Similarity();
+//			simfn = new BM25Similarity((float)1.2, (float)0.5);
 		} else if ("dfr".equals(simstring)) {
 			simfn = new DFRSimilarity(new BasicModelP(), new AfterEffectL(), new NormalizationH2());
 		} else if ("lm".equals(simstring)) {
@@ -126,7 +128,6 @@ public class BatchSearchForTopics {
 		}
 		QueryParser parser = new QueryParser(Version.LUCENE_41, field, analyzer);
 		Pattern numberReplacePattern = Pattern.compile("\\<num\\> Number:\\s*");
-		Pattern multiSpacePattern = Pattern.compile("[\\s\\t]+");
 		Pattern replacePattern = Pattern.compile("(?<=[^A-Z])[:;\\*\\-\"\\.\\?,\\'/]|\\(.*?\\)");
 		while (true) {
 			
@@ -185,66 +186,68 @@ public class BatchSearchForTopics {
 			desc = replacePattern.matcher(desc).replaceAll(" ");
 			narr = removeIrrelevantString(narr);
 			narr = replacePattern.matcher(narr).replaceAll(" ");
-			String queryString = title;
-			if (addStrategy.contains("d")) {
-				queryString += desc;
-				queryString += narr;
-			} 
-			if (addStrategy.contains("n")) {
-				queryString += narr;
-			}
-			HashMap<String, Integer> queryMap = new HashMap<String, Integer>();
-			String[] tokensStrings = queryString.split("\\s+");
-//			System.out.println(tokensStrings.length);
-			for (String tmpString:tokensStrings) {
-				if (stopWordSet.contains(tmpString)) {
-					continue;
-				}
-				Integer tmpIndex = queryMap.get(tmpString);
-				if (tmpIndex == null) {
-					queryMap.put(tmpString, 1);
-				} else {
-					queryMap.put(tmpString, tmpIndex + 1);
-				}
-			}
-			List list = new LinkedList(queryMap.entrySet());
-			Collections.sort(list, new Comparator() {
-				public int compare(Object o1, Object o2) {
-					return ((Comparable) ((Map.Entry) (o2)).getValue())
-	                                       .compareTo(((Map.Entry) (o1)).getValue());
-				}
-			});
-			int topk = 100;
-			Iterator<Map.Entry<String, Integer>> e = list.iterator();
-			StringBuilder querySBuilder = new StringBuilder(title);
-			while(e.hasNext()) {
-//				if (topk <= 0) {
-//					break;
+//			String queryString = title;
+//			if (addStrategy.contains("d")) {
+//				queryString += desc;
+//				queryString += narr;
+//			} 
+//			if (addStrategy.contains("n")) {
+//				queryString += narr;
+//			}
+//			HashMap<String, Integer> queryMap = new HashMap<String, Integer>();
+//			String[] tokensStrings = queryString.split("\\s+");
+////			System.out.println(tokensStrings.length);
+//			for (String tmpString:tokensStrings) {
+//				if (stopWordSet.contains(tmpString)) {
+//					continue;
 //				}
-//				topk--;
-				Map.Entry<String, Integer> entry = e.next();
-//				if (entry.getValue() == 1) {
-//					break;
+//				Integer tmpIndex = queryMap.get(tmpString);
+//				if (tmpIndex == null) {
+//					queryMap.put(tmpString, 1);
+//				} else {
+//					queryMap.put(tmpString, tmpIndex + 1);
 //				}
-				querySBuilder.append(entry.getKey() + " ");
-			}
+//			}
+//			List list = new LinkedList(queryMap.entrySet());
+//			Collections.sort(list, new Comparator() {
+//				public int compare(Object o1, Object o2) {
+//					return ((Comparable) ((Map.Entry) (o2)).getValue())
+//	                                       .compareTo(((Map.Entry) (o1)).getValue());
+//				}
+//			});
+//			int topk = 100;
+//			Iterator<Map.Entry<String, Integer>> e = list.iterator();
+//			StringBuilder querySBuilder = new StringBuilder(title);
+//			while(e.hasNext()) {
+////				if (topk <= 0) {
+////					break;
+////				}
+////				topk--;
+//				Map.Entry<String, Integer> entry = e.next();
+////				if (entry.getValue() == 1) {
+////					break;
+////				}
+//				querySBuilder.append(entry.getKey() + " ");
+//			}
 //			queryString = querySBuilder.toString();
 //			queryString = title + desc + narr;
 //			Query query = parser.parse(queryString);
-//			title = multiSpacePattern.matcher(title).replaceAll(" ");
-//			desc = multiSpacePattern.matcher(desc).replaceAll(" ");
-//			narr = multiSpacePattern.matcher(narr).replaceAll(" ");
+//			title = stopwordspPattern.matcher(title).replaceAll("");
+//			desc = stopwordspPattern.matcher(desc).replaceAll("");
+//			narr = stopwordspPattern.matcher(narr).replaceAll("");
+			title = removeStopwords(title);
+			desc = removeStopwords(desc);
+			narr = removeStopwords(narr);
 			
 			BooleanQuery booleanQuery = new BooleanQuery();
-			queryString = title;
-			Query query = parser.parse(queryString.trim());
+			Query query = parser.parse(title);
 			query.setBoost((float) 0.5);
 			booleanQuery.add(query, BooleanClause.Occur.MUST);
-			query = parser.parse(desc.trim());
+			query = parser.parse(desc);
 			query.setBoost((float) 0.35);
 			booleanQuery.add(query, BooleanClause.Occur.MUST);
 			if (!narr.matches("[\\s\\t]*")) {
-				query = parser.parse(narr.trim());
+				query = parser.parse(narr);
 				query.setBoost((float) 0.15);
 				booleanQuery.add(query, BooleanClause.Occur.MUST);
 			}
@@ -317,6 +320,19 @@ public class BatchSearchForTopics {
 //			System.out.println(tmpString);
 //		}
 		String result = removeIrrelevantPattern.matcher(s).replaceAll("");
+		return result;
+//		return null;
+	}
+	private static String removeStopwords (String s) {
+		String[] tmpStrings = s.split("[\\s\\t]+");
+		StringBuilder sb = new StringBuilder();
+		for (String tmpString:tmpStrings) {
+			tmpString = tmpString.toLowerCase();
+			if (!stopWordSet.contains(tmpString)) {
+				sb.append(tmpString + " ");
+			}
+		}
+		String result = sb.toString().trim();
 		return result;
 //		return null;
 	}
